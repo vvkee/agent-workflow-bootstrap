@@ -1,0 +1,6 @@
+# Optional Hermes config fragment for agent-workflow-bootstrap v1
+# Merge manually if you want Hermes to discover shared Codex-style skills.
+
+skills:
+  external_dirs:
+    - ~/.agents/skills

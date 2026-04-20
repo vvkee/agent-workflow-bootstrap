@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/common.sh"
+
+load_workflow_env
+require_command git
+ensure_git_repo
+ensure_repo_tmp_dirs
+
+OPENCODE_BIN="${OPENCODE_CMD:-opencode}"
+require_command "$OPENCODE_BIN"
+
+TASK_TEXT="$(collect_input "$@")"
+AGENT_NAME="${OPENCODE_BUILD_AGENT:-build}"
+MODEL_NAME="${OPENCODE_BUILD_MODEL:-}"
+AUTO_APPROVE="${OPENCODE_AUTO_APPROVE:-1}"
+
+read -r -d '' PROMPT <<EOF || true
+你是当前仓库的主写手。请直接在当前 repo 中完成任务。
+
+任务：
+$TASK_TEXT
+
+硬约束：
+1. 先自己读取相关代码，再形成一个很短的内部计划，不要把长计划输出给用户。
+2. 除非任务本身非常复杂，否则不要停在 plan；直接实现。
+3. 不要机械执行外部文档；以当前 repo 的真实代码为准。
+4. 优先做最小改动。
+5. 完成后运行最相关的验证（测试、lint、build 或最小复现命令）。
+6. 最终只输出：
+   - Changed files
+   - Core cause
+   - Verification
+   - Remaining risks
+
+如果当前信息不足以安全修改代码，先说明缺口，再停止。
+EOF
+
+cmd=("$OPENCODE_BIN" run --agent "$AGENT_NAME")
+if [[ -n "$MODEL_NAME" ]]; then
+  cmd+=(--model "$MODEL_NAME")
+fi
+if [[ "$AUTO_APPROVE" == "1" ]]; then
+  cmd+=(--dangerously-skip-permissions)
+fi
+cmd+=("$PROMPT")
+
+log "Running OpenCode build in $REPO_ROOT"
+exec "${cmd[@]}"

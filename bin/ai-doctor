@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/common.sh"
+
+load_workflow_env
+
+status_ok=0
+status_warn=0
+
+check_binary() {
+  local label="$1"
+  local cmd="$2"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    printf '[ok]   %s -> %s\n' "$label" "$(command -v "$cmd")"
+    status_ok=$((status_ok + 1))
+  else
+    printf '[warn] %s missing (%s)\n' "$label" "$cmd"
+    status_warn=$((status_warn + 1))
+  fi
+}
+
+check_path() {
+  local label="$1"
+  local target="$2"
+  if [[ -e "$target" ]]; then
+    printf '[ok]   %s -> %s\n' "$label" "$target"
+    status_ok=$((status_ok + 1))
+  else
+    printf '[warn] %s missing (%s)\n' "$label" "$target"
+    status_warn=$((status_warn + 1))
+  fi
+}
+
+printf 'Agent Workflow Doctor\n'
+printf '=====================\n'
+
+check_binary 'git' git
+check_binary 'hermes' "${HERMES_CMD:-hermes}"
+check_binary 'opencode' "${OPENCODE_CMD:-opencode}"
+if resolve_codex_cmd >/dev/null 2>&1; then
+  printf '[ok]   codex -> %s\n' "$(resolve_codex_cmd)"
+  status_ok=$((status_ok + 1))
+else
+  printf '[warn] codex missing (need codex or npx)\n'
+  status_warn=$((status_warn + 1))
+fi
+
+check_path 'workflow env' "$WORKFLOW_ENV"
+check_path 'OpenCode global AGENTS' "$HOME/.config/opencode/AGENTS.md"
+check_path 'Codex global AGENTS' "$HOME/.codex/AGENTS.md"
+check_path 'Codex repo-review skill' "$HOME/.agents/skills/repo-review/SKILL.md"
+check_path 'Codex repo-brief skill' "$HOME/.agents/skills/repo-brief/SKILL.md"
+check_path 'Hermes SOUL' "$HOME/.hermes/SOUL.md"
+
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  REPO_ROOT="$(git rev-parse --show-toplevel)"
+  printf '[ok]   current repo -> %s\n' "$REPO_ROOT"
+  mkdir -p "$REPO_ROOT/.ai/tmp" "$REPO_ROOT/.codex/tmp"
+  check_path 'repo .ai/tmp' "$REPO_ROOT/.ai/tmp"
+  check_path 'repo .codex/tmp' "$REPO_ROOT/.codex/tmp"
+else
+  printf '[warn] current directory is not inside a git repository\n'
+  status_warn=$((status_warn + 1))
+fi
+
+if grep -F "$HOME/.agents/skills" "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+  printf '[ok]   Hermes external skills dir configured\n'
+  status_ok=$((status_ok + 1))
+else
+  printf '[warn] Hermes config does not obviously reference %s\n' "$HOME/.agents/skills"
+  status_warn=$((status_warn + 1))
+fi
+
+printf '\nSummary: %d ok, %d warning(s)\n' "$status_ok" "$status_warn"
+
+if [[ "$status_warn" -gt 0 ]]; then
+  exit 1
+fi

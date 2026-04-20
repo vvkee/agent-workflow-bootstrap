@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/common.sh"
+
+load_workflow_env
+HERMES_BIN="${HERMES_CMD:-hermes}"
+require_command "$HERMES_BIN"
+
+TASK_TEXT="$(collect_input "$@")"
+TOOLSETS="${HERMES_RESEARCH_TOOLSETS:-web,browser}"
+PROFILE_NAME="${HERMES_RESEARCH_PROFILE:-}"
+
+read -r -d '' PROMPT <<EOF || true
+请做一次面向工程决策的外部研究。
+
+研究问题：
+$TASK_TEXT
+
+输出要求：
+1. Facts
+2. Unknowns
+3. Risks
+4. Recommendation
+
+要求：
+- 优先查官方文档、GitHub issue、release notes、公开一手资料
+- 标明不确定性
+- 不做实现，不写代码补丁
+- 结论优先，避免空话
+EOF
+
+cmd=("$HERMES_BIN")
+if [[ -n "$PROFILE_NAME" ]]; then
+  cmd+=(-p "$PROFILE_NAME")
+fi
+cmd+=(chat -q "$PROMPT" -t "$TOOLSETS" -Q)
+
+log "Running Hermes research"
+exec "${cmd[@]}"

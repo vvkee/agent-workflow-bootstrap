@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# local tmp
+.ai/
+.codex/
+
+# shell / debug
+*.log
+*.tmp
+
+# generated archives
+*.tar.gz

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/common.sh"
+
+load_workflow_env
+require_command git
+ensure_git_repo
+ensure_repo_tmp_dirs
+
+CODEX_BIN="$(resolve_codex_cmd || true)"
+[[ -n "$CODEX_BIN" ]] || die 'Codex CLI not found. Install codex or make npx available.'
+
+MODE="${CODEX_REVIEW_MODE:-working-tree}"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+DIFF_PATH="$REPO_ROOT/.codex/tmp/review-$STAMP.diff"
+META_PATH="$REPO_ROOT/.codex/tmp/review-$STAMP.meta.txt"
+
+if has_working_tree_diff; then
+  {
+    echo 'MODE=working-tree'
+    echo
+    echo '## git status --short'
+    git status --short
+    echo
+    echo '## git diff --cached'
+    git diff --cached -- .
+    echo
+    echo '## git diff'
+    git diff -- .
+  } > "$DIFF_PATH"
+  printf 'review_mode=working-tree\n' > "$META_PATH"
+elif has_head_parent; then
+  {
+    echo 'MODE=last-commit'
+    echo
+    echo '## git show --stat --oneline HEAD'
+    git show --stat --oneline --no-patch HEAD
+    echo
+    echo '## git diff HEAD^..HEAD'
+    git diff HEAD^..HEAD -- .
+  } > "$DIFF_PATH"
+  printf 'review_mode=last-commit\n' > "$META_PATH"
+else
+  die 'No working tree diff found and repository has no prior commit to review.'
+fi
+
+MODEL_NAME="${CODEX_REVIEW_MODEL:-}"
+read -r -d '' PROMPT <<EOF || true
+You are the independent reviewer.
+
+Review only this diff file:
+$DIFF_PATH
+
+Rules:
+1. Do not modify any files.
+2. Treat the diff as the full review scope.
+3. Focus only on blocker, high-risk, or test-gap findings.
+4. Ignore stylistic nits unless they hide a bug or serious maintenance risk.
+5. Return plain text in exactly this shape:
+
+Verdict: PASS|REQUEST_CHANGES
+Findings:
+- ...
+Required fixes:
+- ...
+
+If there are no meaningful issues, output PASS and use 'none' for Findings and Required fixes.
+EOF
+
+log "Review diff prepared at $DIFF_PATH"
+if [[ -n "$MODEL_NAME" ]]; then
+  exec bash -lc "$CODEX_BIN exec --model $(printf '%q' "$MODEL_NAME") $(printf '%q' "$PROMPT")"
+else
+  exec bash -lc "$CODEX_BIN exec $(printf '%q' "$PROMPT")"
+fi
