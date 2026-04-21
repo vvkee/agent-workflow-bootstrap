@@ -57,17 +57,24 @@ $DIFF_PATH
 Rules:
 1. Do not modify any files.
 2. Treat the diff as the full review scope.
-3. Focus only on blocker, high-risk, or test-gap findings.
+3. Focus only on blocker, high-risk, or meaningful test-gap findings.
 4. Ignore stylistic nits unless they hide a bug or serious maintenance risk.
-5. Return plain text in exactly this shape:
+5. Every finding must include severity, evidence, and why it matters.
+6. Use severity labels only from: blocker, high.
+7. Return plain text in exactly this shape:
 
 Verdict: PASS|REQUEST_CHANGES
 Findings:
-- ...
+- [blocker|high] path[:line] — issue — why it matters
 Required fixes:
-- ...
+- concise action
 
-If there are no meaningful issues, output PASS and use 'none' for Findings and Required fixes.
+If there are no blocker/high issues, output:
+Verdict: PASS
+Findings:
+- none
+Required fixes:
+- none
 EOF
 
 log "Review diff prepared at $DIFF_PATH"

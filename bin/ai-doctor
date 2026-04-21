@@ -49,6 +49,7 @@ else
 fi
 
 check_path 'workflow env' "$WORKFLOW_ENV"
+check_path 'shared output contract' "$HOME/.config/agent-stack/output-contract.md"
 check_path 'OpenCode global AGENTS' "$HOME/.config/opencode/AGENTS.md"
 check_path 'Codex global AGENTS' "$HOME/.codex/AGENTS.md"
 check_path 'Codex repo-review skill' "$HOME/.agents/skills/repo-review/SKILL.md"

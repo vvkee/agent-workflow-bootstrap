@@ -47,6 +47,7 @@ agent-workflow-bootstrap/
     codex/AGENTS.md
     codex/skills/repo-review/SKILL.md
     codex/skills/repo-brief/SKILL.md
+    shared/output-contract.md
     hermes/SOUL.md
     hermes/config.fragment.yaml
   verify/
@@ -75,6 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 - 在 `~/.local/bin/` 下创建命令入口的符号链接
 - 若 `ai-research` 已被现有命令占用，自动回退安装为 `ai-research-workflow`
 - 在 `~/.config/agent-stack/workflow.env` 初始化共享 env 文件（若不存在）
+- 在 `~/.config/agent-stack/output-contract.md` 安装共享输出契约
 - 默认不覆写已有文件
 - 默认不改 Hermes 配置；如需自动补 `skills.external_dirs`，使用 `--patch-hermes-skills`
 

@@ -26,15 +26,25 @@ $TASK_TEXT
 
 硬约束：
 1. 先自己读取相关代码，再形成一个很短的内部计划，不要把长计划输出给用户。
-2. 除非任务本身非常复杂，否则不要停在 plan；直接实现。
+2. 除非任务本身复杂、模糊、跨多文件或高风险，否则不要停在 plan；直接实现。
 3. 不要机械执行外部文档；以当前 repo 的真实代码为准。
-4. 优先做最小改动。
+4. 优先做最小改动，不要顺手扩 scope。
 5. 完成后运行最相关的验证（测试、lint、build 或最小复现命令）。
-6. 最终只输出：
-   - Changed files
-   - Core cause
-   - Verification
-   - Remaining risks
+6. 不要声称“已验证”除非你真的运行了命令。
+7. 最终只输出下面四段：
+
+Changed files:
+- ...
+
+Core cause:
+- ...
+
+Verification:
+- Ran: ...
+- Result: ...
+
+Remaining risks:
+- ...
 
 如果当前信息不足以安全修改代码，先说明缺口，再停止。
 EOF

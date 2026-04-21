@@ -20,6 +20,7 @@ for path in \
   "$ROOT/templates/codex/AGENTS.md" \
   "$ROOT/templates/codex/skills/repo-review/SKILL.md" \
   "$ROOT/templates/codex/skills/repo-brief/SKILL.md" \
+  "$ROOT/templates/shared/output-contract.md" \
   "$ROOT/templates/hermes/SOUL.md"; do
   [[ -f "$path" ]] || { echo "Missing file: $path" >&2; exit 1; }
 done

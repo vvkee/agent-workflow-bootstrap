@@ -151,6 +151,7 @@ copy_file "$REPO_ROOT/templates/codex/skills/repo-review/SKILL.md" "$HOME/.agent
 copy_file "$REPO_ROOT/templates/codex/skills/repo-brief/SKILL.md" "$HOME/.agents/skills/repo-brief/SKILL.md"
 copy_file "$REPO_ROOT/templates/hermes/SOUL.md" "$HOME/.hermes/SOUL.md"
 copy_file "$REPO_ROOT/templates/hermes/config.fragment.yaml" "$AGENT_STACK_HOME/hermes.config.fragment.yaml"
+copy_file "$REPO_ROOT/templates/shared/output-contract.md" "$AGENT_STACK_HOME/output-contract.md"
 ensure_workflow_env
 
 link_file "$REPO_ROOT/bin/ai-build" "$LOCAL_BIN_DIR/ai-build"

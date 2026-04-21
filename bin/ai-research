@@ -20,10 +20,17 @@ read -r -d '' PROMPT <<EOF || true
 $TASK_TEXT
 
 输出要求：
-1. Facts
-2. Unknowns
-3. Risks
-4. Recommendation
+Facts:
+- ...
+
+Unknowns:
+- ...
+
+Risks:
+- ...
+
+Recommendation:
+- ...
 
 要求：
 - 优先查官方文档、GitHub issue、release notes、公开一手资料
