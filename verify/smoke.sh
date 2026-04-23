@@ -16,6 +16,7 @@ printf 'Smoke check: required files\n'
 for path in \
   "$ROOT/README.md" \
   "$ROOT/env/workflow.env.example" \
+  "$ROOT/templates/claude/CLAUDE.md" \
   "$ROOT/templates/opencode/AGENTS.md" \
   "$ROOT/templates/codex/AGENTS.md" \
   "$ROOT/templates/codex/skills/repo-review/SKILL.md" \
@@ -24,5 +25,25 @@ for path in \
   "$ROOT/templates/hermes/SOUL.md"; do
   [[ -f "$path" ]] || { echo "Missing file: $path" >&2; exit 1; }
 done
+
+printf 'Smoke check: env loader precedence and shell syntax\n'
+WORKFLOW_ENV="$ROOT/env/workflow.env.example" AGENT_BUILD_DRIVER=opencode bash -c '
+  source "$0/lib/common.sh"
+  load_workflow_env
+  [[ "$AGENT_BUILD_DRIVER" == "opencode" ]]
+' "$ROOT"
+
+tmp_env="$(mktemp)"
+cat > "$tmp_env" <<'EOF'
+export AGENT_BUILD_DRIVER=opencode
+CLAUDE_CMD="claude"
+EOF
+WORKFLOW_ENV="$tmp_env" bash -c '
+  source "$0/lib/common.sh"
+  load_workflow_env
+  [[ "$AGENT_BUILD_DRIVER" == "opencode" ]]
+  [[ "$CLAUDE_CMD" == "claude" ]]
+' "$ROOT"
+rm -f "$tmp_env"
 
 printf 'Smoke check passed\n'

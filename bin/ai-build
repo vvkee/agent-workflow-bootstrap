@@ -10,19 +10,17 @@ require_command git
 ensure_git_repo
 ensure_repo_tmp_dirs
 
-OPENCODE_BIN="${OPENCODE_CMD:-opencode}"
-require_command "$OPENCODE_BIN"
-
 TASK_TEXT="$(collect_input "$@")"
-AGENT_NAME="${OPENCODE_BUILD_AGENT:-build}"
-MODEL_NAME="${OPENCODE_BUILD_MODEL:-}"
-AUTO_APPROVE="${OPENCODE_AUTO_APPROVE:-1}"
 
-read -r -d '' PROMPT <<EOF || true
+BUILD_DRIVER="${AGENT_BUILD_DRIVER:-claude}"
+
+build_prompt() {
+  local task="$1"
+  cat <<EOF
 你是当前仓库的主写手。请直接在当前 repo 中完成任务。
 
 任务：
-$TASK_TEXT
+$task
 
 硬约束：
 1. 先自己读取相关代码，再形成一个很短的内部计划，不要把长计划输出给用户。
@@ -30,7 +28,7 @@ $TASK_TEXT
 3. 不要机械执行外部文档；以当前 repo 的真实代码为准。
 4. 优先做最小改动，不要顺手扩 scope。
 5. 完成后运行最相关的验证（测试、lint、build 或最小复现命令）。
-6. 不要声称“已验证”除非你真的运行了命令。
+6. 不要声称"已验证"除非你真的运行了命令。
 7. 最终只输出下面四段：
 
 Changed files:
@@ -48,15 +46,48 @@ Remaining risks:
 
 如果当前信息不足以安全修改代码，先说明缺口，再停止。
 EOF
+}
 
-cmd=("$OPENCODE_BIN" run --agent "$AGENT_NAME")
-if [[ -n "$MODEL_NAME" ]]; then
-  cmd+=(--model "$MODEL_NAME")
-fi
-if [[ "$AUTO_APPROVE" == "1" ]]; then
-  cmd+=(--dangerously-skip-permissions)
-fi
-cmd+=("$PROMPT")
+case "$BUILD_DRIVER" in
+  claude)
+    CLAUDE_BIN="${CLAUDE_CMD:-claude}"
+    require_command "$CLAUDE_BIN"
+    MODEL_NAME="${CLAUDE_BUILD_MODEL:-}"
+    AUTO_APPROVE="${CLAUDE_AUTO_APPROVE:-1}"
 
-log "Running OpenCode build in $REPO_ROOT"
-exec "${cmd[@]}"
+    cmd=("$CLAUDE_BIN" -p "$(build_prompt "$TASK_TEXT")")
+    if [[ -n "$MODEL_NAME" ]]; then
+      cmd+=(--model "$MODEL_NAME")
+    fi
+    if [[ "$AUTO_APPROVE" == "1" ]]; then
+      cmd+=(--dangerously-skip-permissions)
+    fi
+
+    log "Running Claude build in $REPO_ROOT"
+    exec "${cmd[@]}"
+    ;;
+
+  opencode)
+    OPENCODE_BIN="${OPENCODE_CMD:-opencode}"
+    require_command "$OPENCODE_BIN"
+    AGENT_NAME="${OPENCODE_BUILD_AGENT:-build}"
+    MODEL_NAME="${OPENCODE_BUILD_MODEL:-}"
+    AUTO_APPROVE="${OPENCODE_AUTO_APPROVE:-1}"
+
+    cmd=("$OPENCODE_BIN" run --agent "$AGENT_NAME")
+    if [[ -n "$MODEL_NAME" ]]; then
+      cmd+=(--model "$MODEL_NAME")
+    fi
+    if [[ "$AUTO_APPROVE" == "1" ]]; then
+      cmd+=(--dangerously-skip-permissions)
+    fi
+    cmd+=("$(build_prompt "$TASK_TEXT")")
+
+    log "Running OpenCode build in $REPO_ROOT"
+    exec "${cmd[@]}"
+    ;;
+
+  *)
+    die "Unknown AGENT_BUILD_DRIVER: $BUILD_DRIVER (expected: claude | opencode)"
+    ;;
+esac

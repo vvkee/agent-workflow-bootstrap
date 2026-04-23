@@ -1,6 +1,6 @@
 # agent-workflow-bootstrap
 
-轻量通用 Agent Workflow Bootstrap v1。
+轻量通用 Agent Stack Bootstrap v1。
 
 目标：
 - 一份仓库
@@ -10,10 +10,10 @@
 - 尽量不污染每个 repo
 
 默认分工：
-- OpenCode = 主写手
+- Claude Code = 主写手（默认）
+- OpenCode = 备选主写手（`AGENT_BUILD_DRIVER=opencode` 切换）
 - Codex = 冷审
 - Hermes = research / memory / skills 外环
-- Claude Code = 手动备用，不进 v1 热路径
 
 默认工作流：
 1. 小改动：`ai-build`
@@ -26,6 +26,8 @@
 - plan 只在复杂任务出现，默认直接 build
 - 规则文件要短、硬、稳定
 - repo 内只允许临时产物进入 `.ai/tmp/` 和 `.codex/tmp/`
+
+> 仓库名暂时仍为 agent-workflow-bootstrap，但 v1 scope 已扩成更通用的 agent stack bootstrap。
 
 ## 项目结构
 
@@ -43,6 +45,7 @@ agent-workflow-bootstrap/
     ai-research
     ai-doctor
   templates/
+    claude/CLAUDE.md
     opencode/AGENTS.md
     codex/AGENTS.md
     codex/skills/repo-review/SKILL.md
@@ -72,7 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 ```
 
 默认行为：
-- 复制全局模板到用户目录
+- 复制全局模板到用户目录（Claude、OpenCode、Codex、Hermes）
 - 在 `~/.local/bin/` 下创建命令入口的符号链接
 - 若 `ai-research` 已被现有命令占用，自动回退安装为 `ai-research-workflow`
 - 在 `~/.config/agent-stack/workflow.env` 初始化共享 env 文件（若不存在）
@@ -91,8 +94,8 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 ## 四个命令
 
 ### `ai-build`
-- 运行 OpenCode `build` agent
-- 让 OpenCode 自己读 repo、自主短计划、实现、验证
+- 默认调用 Claude Code，或根据 `AGENT_BUILD_DRIVER` 调用 OpenCode
+- 让主写手自己读 repo、自主短计划、实现、验证
 - 默认要求输出：改动文件 / 核心原因 / 验证结果 / 剩余风险
 
 ### `ai-review`
@@ -106,6 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 
 ### `ai-doctor`
 - 检查命令、全局模板、共享 env、repo 状态、临时目录
+- 优先检查当前配置的主执行器
 
 ## 共享环境变量
 
@@ -116,6 +120,8 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 - `env/workflow.env.example`
 
 重点变量：
+- `AGENT_BUILD_DRIVER` — 主写手选择：`claude`（默认）| `opencode`
+- `CLAUDE_CMD`
 - `OPENCODE_CMD`
 - `CODEX_CMD`
 - `HERMES_CMD`
@@ -136,14 +142,14 @@ v1 不默认新增：
 
 ## 已知边界
 
-- 本机当前未安装 `opencode`、`codex`，所以 `ai-build` / `ai-review` 目前只能完成脚本级验证，不能做真实集成测试
+- `ai-build` 默认使用 Claude Code CLI（`claude`）；如未安装可通过 `AGENT_BUILD_DRIVER=opencode` 切换到 OpenCode
 - `ai-review` 默认审查当前工作区 diff；若工作区干净，则回退审查最近一个 commit diff
 - `ai-research` 默认使用 Hermes CLI；如配置了专门 profile，可在 `workflow.env` 中指定
-- v1 不实现自动 review loop、自动 apply-review、Claude fallback 编排
+- v1 不实现自动 review loop、自动 apply-review、多 agent 自动编排
 
 ## 推荐下一步
 
-1. 安装 OpenCode / Codex
+1. 安装 Claude Code / OpenCode / Codex
 2. 跑 `ai-doctor`
 3. 在一个测试 repo 里试：
    - `ai-build "修复一个小 bug"`

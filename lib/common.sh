@@ -6,11 +6,50 @@ AGENT_STACK_HOME="${AGENT_STACK_HOME:-$HOME/.config/agent-stack}"
 WORKFLOW_ENV="${WORKFLOW_ENV:-$AGENT_STACK_HOME/workflow.env}"
 
 load_workflow_env() {
-  if [[ -f "$WORKFLOW_ENV" ]]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$WORKFLOW_ENV"
-    set +a
+  if [[ ! -f "$WORKFLOW_ENV" ]]; then
+    return 0
+  fi
+
+  local workflow_keys=(
+    AGENT_BUILD_DRIVER
+    CLAUDE_CMD
+    CLAUDE_BUILD_MODEL
+    CLAUDE_AUTO_APPROVE
+    OPENCODE_CMD
+    OPENCODE_BUILD_AGENT
+    OPENCODE_BUILD_MODEL
+    OPENCODE_AUTO_APPROVE
+    CODEX_CMD
+    CODEX_REVIEW_MODEL
+    CODEX_REVIEW_MODE
+    HERMES_CMD
+    HERMES_RESEARCH_PROFILE
+    HERMES_RESEARCH_TOOLSETS
+    AI_BUILD_TITLE
+    AI_REVIEW_TITLE
+    AI_RESEARCH_TITLE
+  )
+  local preset_keys=()
+  local key preset_var
+
+  for key in "${workflow_keys[@]}"; do
+    if [[ -n "${!key+x}" ]]; then
+      preset_keys+=("$key")
+      printf -v "preset_$key" '%s' "${!key}"
+    fi
+  done
+
+  set -a
+  # shellcheck disable=SC1090
+  source "$WORKFLOW_ENV"
+  set +a
+
+  if ((${#preset_keys[@]} > 0)); then
+    for key in "${preset_keys[@]}"; do
+      preset_var="preset_$key"
+      printf -v "$key" '%s' "${!preset_var}"
+      export "$key"
+    done
   fi
 }
 

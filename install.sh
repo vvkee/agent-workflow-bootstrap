@@ -25,7 +25,7 @@ bootstrap_from_github() {
   exec bash "$extracted/install.sh" "${ORIGINAL_ARGS[@]}"
 }
 
-if [[ ! -f "$REPO_ROOT/templates/opencode/AGENTS.md" ]]; then
+if [[ ! -f "$REPO_ROOT/templates/opencode/AGENTS.md" || ! -f "$REPO_ROOT/templates/claude/CLAUDE.md" ]]; then
   bootstrap_from_github
 fi
 
@@ -145,6 +145,7 @@ PY
 
 mkdir -p "$LOCAL_BIN_DIR"
 
+copy_file "$REPO_ROOT/templates/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 copy_file "$REPO_ROOT/templates/opencode/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
 copy_file "$REPO_ROOT/templates/codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
 copy_file "$REPO_ROOT/templates/codex/skills/repo-review/SKILL.md" "$HOME/.agents/skills/repo-review/SKILL.md"
@@ -183,4 +184,4 @@ echo
 echo 'Next steps:'
 echo '  1) Review ~/.config/agent-stack/workflow.env'
 echo '  2) Run ai-doctor'
-echo '  3) Install opencode/codex if doctor warns they are missing'
+echo '  3) Install claude/opencode/codex if doctor warns they are missing'
