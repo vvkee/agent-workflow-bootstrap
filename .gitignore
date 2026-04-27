@@ -4,6 +4,7 @@
 # local tmp
 .ai/
 .codex/
+.hermes/
 
 # shell / debug
 *.log

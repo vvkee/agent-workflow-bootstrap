@@ -4,58 +4,86 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/prompts.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ai-build [--driver claude|opencode] [--model NAME] [--no-auto-approve] [--dump-prompt] [task text]
+
+Options:
+  --driver             override AGENT_BUILD_DRIVER for this run only
+  --model              override build model for the active driver
+  --no-auto-approve    do not pass auto-approve / skip-permissions flags
+  --dump-prompt        save the generated prompt into <repo>/.ai/tmp/
+EOF
+}
 
 load_workflow_env
 require_command git
 ensure_git_repo
 ensure_repo_tmp_dirs
 
-TASK_TEXT="$(collect_input "$@")"
-
 BUILD_DRIVER="${AGENT_BUILD_DRIVER:-claude}"
+BUILD_MODEL_OVERRIDE=""
+DISABLE_AUTO_APPROVE=0
+DUMP_PROMPT=0
+POSITIONAL=()
 
-build_prompt() {
-  local task="$1"
-  cat <<EOF
-你是当前仓库的主写手。请直接在当前 repo 中完成任务。
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --driver)
+      shift
+      BUILD_DRIVER="$(require_value_arg --driver "${1-}")"
+      ;;
+    --model)
+      shift
+      BUILD_MODEL_OVERRIDE="$(require_value_arg --model "${1-}")"
+      ;;
+    --no-auto-approve)
+      DISABLE_AUTO_APPROVE=1
+      ;;
+    --dump-prompt)
+      DUMP_PROMPT=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        POSITIONAL+=("$1")
+        shift
+      done
+      break
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      ;;
+  esac
+  shift
+done
 
-任务：
-$task
+TASK_TEXT="$(collect_input "${POSITIONAL[@]}")"
+PROMPT="$(build_prompt "$TASK_TEXT")"
 
-硬约束：
-1. 先自己读取相关代码，再形成一个很短的内部计划，不要把长计划输出给用户。
-2. 除非任务本身复杂、模糊、跨多文件或高风险，否则不要停在 plan；直接实现。
-3. 不要机械执行外部文档；以当前 repo 的真实代码为准。
-4. 优先做最小改动，不要顺手扩 scope。
-5. 完成后运行最相关的验证（测试、lint、build 或最小复现命令）。
-6. 不要声称"已验证"除非你真的运行了命令。
-7. 最终只输出下面四段：
-
-Changed files:
-- ...
-
-Core cause:
-- ...
-
-Verification:
-- Ran: ...
-- Result: ...
-
-Remaining risks:
-- ...
-
-如果当前信息不足以安全修改代码，先说明缺口，再停止。
-EOF
-}
+if [[ "$DUMP_PROMPT" -eq 1 ]]; then
+  PROMPT_PATH="$(write_debug_file "$REPO_ROOT/.ai/tmp" 'build-prompt' "$PROMPT")"
+  log "Saved build prompt to $PROMPT_PATH"
+fi
 
 case "$BUILD_DRIVER" in
   claude)
     CLAUDE_BIN="${CLAUDE_CMD:-claude}"
     require_command "$CLAUDE_BIN"
-    MODEL_NAME="${CLAUDE_BUILD_MODEL:-}"
+    MODEL_NAME="${BUILD_MODEL_OVERRIDE:-${CLAUDE_BUILD_MODEL:-}}"
     AUTO_APPROVE="${CLAUDE_AUTO_APPROVE:-1}"
+    if [[ "$DISABLE_AUTO_APPROVE" -eq 1 ]]; then
+      AUTO_APPROVE=0
+    fi
 
-    cmd=("$CLAUDE_BIN" -p "$(build_prompt "$TASK_TEXT")")
+    cmd=("$CLAUDE_BIN" -p "$PROMPT")
     if [[ -n "$MODEL_NAME" ]]; then
       cmd+=(--model "$MODEL_NAME")
     fi
@@ -71,8 +99,11 @@ case "$BUILD_DRIVER" in
     OPENCODE_BIN="${OPENCODE_CMD:-opencode}"
     require_command "$OPENCODE_BIN"
     AGENT_NAME="${OPENCODE_BUILD_AGENT:-build}"
-    MODEL_NAME="${OPENCODE_BUILD_MODEL:-}"
+    MODEL_NAME="${BUILD_MODEL_OVERRIDE:-${OPENCODE_BUILD_MODEL:-}}"
     AUTO_APPROVE="${OPENCODE_AUTO_APPROVE:-1}"
+    if [[ "$DISABLE_AUTO_APPROVE" -eq 1 ]]; then
+      AUTO_APPROVE=0
+    fi
 
     cmd=("$OPENCODE_BIN" run --agent "$AGENT_NAME")
     if [[ -n "$MODEL_NAME" ]]; then
@@ -81,7 +112,7 @@ case "$BUILD_DRIVER" in
     if [[ "$AUTO_APPROVE" == "1" ]]; then
       cmd+=(--dangerously-skip-permissions)
     fi
-    cmd+=("$(build_prompt "$TASK_TEXT")")
+    cmd+=("$PROMPT")
 
     log "Running OpenCode build in $REPO_ROOT"
     exec "${cmd[@]}"

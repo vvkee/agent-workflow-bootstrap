@@ -4,6 +4,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/prompts.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ai-review [--mode working-tree|last-commit] [--model NAME] [--include-untracked PATH]... [--dump-prompt]
+
+Options:
+  --mode                  override CODEX_REVIEW_MODE for this run only
+  --model                 override CODEX_REVIEW_MODEL for this run only
+  --include-untracked     explicitly include one untracked reviewable file; may be passed multiple times
+  --dump-prompt           save the generated review prompt into <repo>/.codex/tmp/
+EOF
+}
 
 load_workflow_env
 require_command git
@@ -14,11 +28,74 @@ CODEX_BIN="$(resolve_codex_cmd || true)"
 [[ -n "$CODEX_BIN" ]] || die 'Codex CLI not found. Install codex or make npx available.'
 
 MODE="${CODEX_REVIEW_MODE:-working-tree}"
-STAMP="$(date +%Y%m%d-%H%M%S)"
+MODEL_NAME_OVERRIDE=""
+DUMP_PROMPT=0
+REQUESTED_UNTRACKED_FILES=()
+VALIDATED_UNTRACKED_FILES=()
+
+is_reviewable_untracked_file() {
+  local file="$1"
+  case "$file" in
+    *.c|*.cc|*.cpp|*.css|*.go|*.graphql|*.h|*.hpp|*.html|*.java|*.js|*.json|*.jsx|*.kt|*.md|*.mjs|*.php|*.py|*.rb|*.rs|*.sh|*.sql|*.swift|*.toml|*.ts|*.tsx|*.txt|*.yaml|*.yml)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_requested_untracked_file() {
+  local file="$1"
+  local size=''
+
+  [[ -f "$file" ]] || die "Requested untracked review file does not exist: $file"
+  git ls-files --others --exclude-standard -- "$file" | grep -Fx -- "$file" >/dev/null 2>&1 || die "Requested file is not currently untracked: $file"
+  is_reviewable_untracked_file "$file" || die "Requested untracked file is not a supported reviewable source/doc file: $file"
+
+  size="$(wc -c < "$file")"
+  [[ "$size" -le 131072 ]] || die "Requested untracked review file is too large (>128 KiB): $file"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode)
+      shift
+      MODE="$(require_value_arg --mode "${1-}")"
+      ;;
+    --model)
+      shift
+      MODEL_NAME_OVERRIDE="$(require_value_arg --model "${1-}")"
+      ;;
+    --include-untracked)
+      shift
+      REQUESTED_UNTRACKED_FILES+=("$(require_value_arg --include-untracked "${1-}")")
+      ;;
+    --dump-prompt)
+      DUMP_PROMPT=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "Unknown argument: $1"
+      ;;
+  esac
+  shift
+done
+
+for file in "${REQUESTED_UNTRACKED_FILES[@]}"; do
+  validate_requested_untracked_file "$file"
+  VALIDATED_UNTRACKED_FILES+=("$file")
+done
+
+STAMP="$(timestamp_now)"
 DIFF_PATH="$REPO_ROOT/.codex/tmp/review-$STAMP.diff"
 META_PATH="$REPO_ROOT/.codex/tmp/review-$STAMP.meta.txt"
+ACTUAL_MODE=""
 
-if has_working_tree_diff; then
+write_working_tree_diff() {
   {
     echo 'MODE=working-tree'
     echo
@@ -30,9 +107,18 @@ if has_working_tree_diff; then
     echo
     echo '## git diff'
     git diff -- .
+
+    if ((${#VALIDATED_UNTRACKED_FILES[@]} > 0)); then
+      echo
+      echo '## git diff --no-index (explicit untracked files)'
+      for file in "${VALIDATED_UNTRACKED_FILES[@]}"; do
+        git diff --no-index -- /dev/null "$file" || true
+      done
+    fi
   } > "$DIFF_PATH"
-  printf 'review_mode=working-tree\n' > "$META_PATH"
-elif has_head_parent; then
+}
+
+write_last_commit_diff() {
   {
     echo 'MODE=last-commit'
     echo
@@ -42,42 +128,50 @@ elif has_head_parent; then
     echo '## git diff HEAD^..HEAD'
     git diff HEAD^..HEAD -- .
   } > "$DIFF_PATH"
-  printf 'review_mode=last-commit\n' > "$META_PATH"
-else
-  die 'No working tree diff found and repository has no prior commit to review.'
+}
+
+case "$MODE" in
+  working-tree)
+    if has_working_tree_diff; then
+      ACTUAL_MODE='working-tree'
+      write_working_tree_diff
+    elif ((${#VALIDATED_UNTRACKED_FILES[@]} > 0)); then
+      ACTUAL_MODE='working-tree-untracked-only'
+      write_working_tree_diff
+    elif has_head_parent; then
+      ACTUAL_MODE='last-commit-fallback'
+      write_last_commit_diff
+    else
+      die 'No working tree diff found and repository has no prior commit to review.'
+    fi
+    ;;
+  last-commit)
+    if has_head_parent; then
+      ACTUAL_MODE='last-commit'
+      write_last_commit_diff
+    else
+      die 'Repository has no prior commit to review.'
+    fi
+    ;;
+  *)
+    die "Unknown review mode: $MODE (expected: working-tree | last-commit)"
+    ;;
+esac
+
+{
+  printf 'requested_mode=%s\n' "$MODE"
+  printf 'actual_mode=%s\n' "$ACTUAL_MODE"
+  printf 'explicit_untracked_files=%s\n' "${#VALIDATED_UNTRACKED_FILES[@]}"
+} > "$META_PATH"
+
+PROMPT="$(review_prompt "$DIFF_PATH")"
+if [[ "$DUMP_PROMPT" -eq 1 ]]; then
+  PROMPT_PATH="$(write_debug_file "$REPO_ROOT/.codex/tmp" 'review-prompt' "$PROMPT")"
+  log "Saved review prompt to $PROMPT_PATH"
 fi
 
-MODEL_NAME="${CODEX_REVIEW_MODEL:-}"
-read -r -d '' PROMPT <<EOF || true
-You are the independent reviewer.
-
-Review only this diff file:
-$DIFF_PATH
-
-Rules:
-1. Do not modify any files.
-2. Treat the diff as the full review scope.
-3. Focus only on blocker, high-risk, or meaningful test-gap findings.
-4. Ignore stylistic nits unless they hide a bug or serious maintenance risk.
-5. Every finding must include severity, evidence, and why it matters.
-6. Use severity labels only from: blocker, high.
-7. Return plain text in exactly this shape:
-
-Verdict: PASS|REQUEST_CHANGES
-Findings:
-- [blocker|high] path[:line] — issue — why it matters
-Required fixes:
-- concise action
-
-If there are no blocker/high issues, output:
-Verdict: PASS
-Findings:
-- none
-Required fixes:
-- none
-EOF
-
-log "Review diff prepared at $DIFF_PATH"
+MODEL_NAME="${MODEL_NAME_OVERRIDE:-${CODEX_REVIEW_MODEL:-}}"
+log "Review diff prepared at $DIFF_PATH (requested: $MODE, actual: $ACTUAL_MODE)"
 if [[ -n "$MODEL_NAME" ]]; then
   exec bash -lc "$CODEX_BIN exec --model $(printf '%q' "$MODEL_NAME") $(printf '%q' "$PROMPT")"
 else

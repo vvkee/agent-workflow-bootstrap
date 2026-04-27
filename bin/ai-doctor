@@ -11,6 +11,10 @@ status_ok=0
 status_warn=0
 
 BUILD_DRIVER="${AGENT_BUILD_DRIVER:-claude}"
+CLAUDE_BIN="${CLAUDE_CMD:-claude}"
+OPENCODE_BIN="${OPENCODE_CMD:-opencode}"
+HERMES_BIN="${HERMES_CMD:-hermes}"
+CODEX_BIN="$(resolve_codex_cmd || true)"
 
 check_binary() {
   local label="$1"
@@ -59,20 +63,32 @@ check_path_info() {
 }
 
 printf 'Agent Stack Doctor\n'
-printf '==================\n'
-printf 'Build driver: %s\n\n' "$BUILD_DRIVER"
+printf '==================\n\n'
 
+printf 'Effective config\n'
+printf '%s\n' '----------------'
+printf 'workflow env: %s\n' "$WORKFLOW_ENV"
+printf 'build driver: %s\n' "$BUILD_DRIVER"
+printf 'claude cmd: %s\n' "$CLAUDE_BIN"
+printf 'opencode cmd: %s\n' "$OPENCODE_BIN"
+printf 'codex cmd: %s\n' "${CODEX_BIN:-<missing>}"
+printf 'hermes cmd: %s\n' "$HERMES_BIN"
+printf 'review mode: %s\n' "${CODEX_REVIEW_MODE:-working-tree}"
+printf 'research profile: %s\n' "${HERMES_RESEARCH_PROFILE:-<default>}"
+printf 'research toolsets: %s\n\n' "${HERMES_RESEARCH_TOOLSETS:-web,browser}"
+
+printf 'Checks\n'
+printf '%s\n' '------'
 check_binary 'git' git
 
-# Check primary driver first; secondary is informational only
 case "$BUILD_DRIVER" in
   claude)
-    check_binary 'claude (primary)' "${CLAUDE_CMD:-claude}"
-    check_binary_info 'opencode' "${OPENCODE_CMD:-opencode}"
+    check_binary 'claude (primary)' "$CLAUDE_BIN"
+    check_binary_info 'opencode' "$OPENCODE_BIN"
     ;;
   opencode)
-    check_binary 'opencode (primary)' "${OPENCODE_CMD:-opencode}"
-    check_binary_info 'claude' "${CLAUDE_CMD:-claude}"
+    check_binary 'opencode (primary)' "$OPENCODE_BIN"
+    check_binary_info 'claude' "$CLAUDE_BIN"
     ;;
   *)
     printf '[warn] invalid build driver (%s); expected claude or opencode\n' "$BUILD_DRIVER"
@@ -80,9 +96,9 @@ case "$BUILD_DRIVER" in
     ;;
 esac
 
-check_binary 'hermes' "${HERMES_CMD:-hermes}"
-if resolve_codex_cmd >/dev/null 2>&1; then
-  printf '[ok]   codex -> %s\n' "$(resolve_codex_cmd)"
+check_binary 'hermes' "$HERMES_BIN"
+if [[ -n "$CODEX_BIN" ]]; then
+  printf '[ok]   codex -> %s\n' "$CODEX_BIN"
   status_ok=$((status_ok + 1))
 else
   printf '[warn] codex missing (need codex or npx)\n'
@@ -92,7 +108,6 @@ fi
 check_path 'workflow env' "$WORKFLOW_ENV"
 check_path 'shared output contract' "$HOME/.config/agent-stack/output-contract.md"
 
-# Check template paths for both drivers
 case "$BUILD_DRIVER" in
   claude)
     check_path 'Claude global CLAUDE.md' "$HOME/.claude/CLAUDE.md"

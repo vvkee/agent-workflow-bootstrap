@@ -71,6 +71,28 @@ require_command() {
   command -v "$cmd" >/dev/null 2>&1 || die "Required command not found: $cmd"
 }
 
+timestamp_now() {
+  date +%Y%m%d-%H%M%S
+}
+
+require_value_arg() {
+  local flag="$1"
+  local value="${2-}"
+  [[ -n "$value" ]] || die "Missing value for $flag"
+  printf '%s' "$value"
+}
+
+write_debug_file() {
+  local dir="$1"
+  local prefix="$2"
+  local content="$3"
+  mkdir -p "$dir"
+
+  local path="$dir/${prefix}-$(timestamp_now).txt"
+  printf '%s\n' "$content" > "$path"
+  printf '%s' "$path"
+}
+
 ensure_git_repo() {
   git rev-parse --show-toplevel >/dev/null 2>&1 || die 'Current directory is not inside a git repository'
   REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -104,16 +126,20 @@ resolve_codex_cmd() {
   fi
 
   if command -v codex >/dev/null 2>&1; then
-    printf '%s' "codex"
+    printf '%s' 'codex'
     return 0
   fi
 
   if command -v npx >/dev/null 2>&1; then
-    printf '%s' "npx -y @openai/codex"
+    printf '%s' 'npx -y @openai/codex'
     return 0
   fi
 
   return 1
+}
+
+has_untracked_files() {
+  [[ -n "$(git ls-files --others --exclude-standard)" ]]
 }
 
 has_working_tree_diff() {

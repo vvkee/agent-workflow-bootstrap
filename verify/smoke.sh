@@ -7,15 +7,25 @@ printf 'Smoke check: shell syntax\n'
 bash -n "$ROOT/install.sh"
 bash -n "$ROOT/bootstrap.sh"
 bash -n "$ROOT/lib/common.sh"
+bash -n "$ROOT/lib/prompts.sh"
 bash -n "$ROOT/bin/ai-build"
 bash -n "$ROOT/bin/ai-review"
 bash -n "$ROOT/bin/ai-research"
 bash -n "$ROOT/bin/ai-doctor"
+bash -n "$ROOT/verify/test-install.sh"
+bash -n "$ROOT/verify/e2e.sh"
+bash -n "$ROOT/verify/fixtures/setup-test-repo.sh"
+bash -n "$ROOT/verify/fixtures/bin/claude"
+bash -n "$ROOT/verify/fixtures/bin/opencode"
+bash -n "$ROOT/verify/fixtures/bin/codex"
+bash -n "$ROOT/verify/fixtures/bin/hermes"
 
 printf 'Smoke check: required files\n'
 for path in \
   "$ROOT/README.md" \
+  "$ROOT/docs/roadmap.md" \
   "$ROOT/env/workflow.env.example" \
+  "$ROOT/lib/prompts.sh" \
   "$ROOT/templates/claude/CLAUDE.md" \
   "$ROOT/templates/opencode/AGENTS.md" \
   "$ROOT/templates/codex/AGENTS.md" \
@@ -45,5 +55,11 @@ WORKFLOW_ENV="$tmp_env" bash -c '
   [[ "$CLAUDE_CMD" == "claude" ]]
 ' "$ROOT"
 rm -f "$tmp_env"
+
+printf 'Smoke check: install flow\n'
+bash "$ROOT/verify/test-install.sh"
+
+printf 'Smoke check: wrapper e2e\n'
+bash "$ROOT/verify/e2e.sh"
 
 printf 'Smoke check passed\n'

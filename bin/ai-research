@@ -4,40 +4,75 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/prompts.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ai-research [--profile NAME] [--toolsets web,browser] [--dump-prompt] [research question]
+
+Options:
+  --profile      override HERMES_RESEARCH_PROFILE for this run only
+  --toolsets     override HERMES_RESEARCH_TOOLSETS for this run only
+  --dump-prompt  save the generated research prompt into <repo>/.ai/tmp/ when inside a git repo
+EOF
+}
 
 load_workflow_env
 HERMES_BIN="${HERMES_CMD:-hermes}"
 require_command "$HERMES_BIN"
 
-TASK_TEXT="$(collect_input "$@")"
 TOOLSETS="${HERMES_RESEARCH_TOOLSETS:-web,browser}"
 PROFILE_NAME="${HERMES_RESEARCH_PROFILE:-}"
+DUMP_PROMPT=0
+POSITIONAL=()
 
-read -r -d '' PROMPT <<EOF || true
-请做一次面向工程决策的外部研究。
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      shift
+      PROFILE_NAME="$(require_value_arg --profile "${1-}")"
+      ;;
+    --toolsets)
+      shift
+      TOOLSETS="$(require_value_arg --toolsets "${1-}")"
+      ;;
+    --dump-prompt)
+      DUMP_PROMPT=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        POSITIONAL+=("$1")
+        shift
+      done
+      break
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      ;;
+  esac
+  shift
+done
 
-研究问题：
-$TASK_TEXT
+TASK_TEXT="$(collect_input "${POSITIONAL[@]}")"
+PROMPT="$(research_prompt "$TASK_TEXT")"
 
-输出要求：
-Facts:
-- ...
-
-Unknowns:
-- ...
-
-Risks:
-- ...
-
-Recommendation:
-- ...
-
-要求：
-- 优先查官方文档、GitHub issue、release notes、公开一手资料
-- 标明不确定性
-- 不做实现，不写代码补丁
-- 结论优先，避免空话
-EOF
+if [[ "$DUMP_PROMPT" -eq 1 ]]; then
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    export REPO_ROOT
+    ensure_repo_tmp_dirs
+    PROMPT_PATH="$(write_debug_file "$REPO_ROOT/.ai/tmp" 'research-prompt' "$PROMPT")"
+  else
+    PROMPT_PATH="$(write_debug_file "$PWD/.ai/tmp" 'research-prompt' "$PROMPT")"
+  fi
+  log "Saved research prompt to $PROMPT_PATH"
+fi
 
 cmd=("$HERMES_BIN")
 if [[ -n "$PROFILE_NAME" ]]; then

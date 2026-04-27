@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="$(basename "$0")"
+log_dir="${WORKFLOW_FAKE_LOG_DIR:?WORKFLOW_FAKE_LOG_DIR is required}"
+mkdir -p "$log_dir"
+count_file="$log_dir/${name}.count"
+count=1
+if [[ -f "$count_file" ]]; then
+  count=$(( $(cat "$count_file") + 1 ))
+fi
+printf '%s' "$count" > "$count_file"
+log_path="$log_dir/${name}-${count}.args"
+
+{
+  printf 'PWD=%s\n' "$PWD"
+  i=0
+  for arg in "$@"; do
+    printf 'ARG[%s]=%s\n' "$i" "$arg"
+    i=$((i + 1))
+  done
+} > "$log_path"
+
+cat <<'EOF'
+Verdict: PASS
+Findings:
+- none
+Required fixes:
+- none
+EOF

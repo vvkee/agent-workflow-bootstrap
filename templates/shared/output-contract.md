@@ -1,6 +1,7 @@
 # Shared Output Contract
 
-This file is the source of truth for the lightweight workflow v1 output shapes.
+This file is the human-readable source of truth for the lightweight workflow v1 output shapes.
+The shell-level prompt implementation lives in `lib/prompts.sh`; keep the two in sync.
 
 ## Build output
 
