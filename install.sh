@@ -100,9 +100,33 @@ bootstrap_from_github() {
   exit 1
 }
 
-if [[ ! -f "$REPO_ROOT/templates/opencode/AGENTS.md" || ! -f "$REPO_ROOT/templates/claude/CLAUDE.md" ]]; then
-  bootstrap_from_github
-fi
+REQUIRED_LOCAL_FILES=(
+  bin/ai-build
+  bin/ai-context
+  bin/ai-doctor
+  bin/ai-research
+  bin/ai-review
+  env/workflow.env.example
+  lib/common.sh
+  lib/context_common.sh
+  lib/prompts.sh
+  templates/claude/CLAUDE.md
+  templates/opencode/AGENTS.md
+  templates/codex/AGENTS.md
+  templates/codex/skills/repo-review/SKILL.md
+  templates/codex/skills/repo-brief/SKILL.md
+  templates/context/agent-rules.md
+  templates/context/memory-policy.md
+  templates/context/privacy-boundary.md
+  templates/context/context-bundle.example.md
+  templates/hermes/SOUL.md
+  templates/shared/output-contract.md
+)
+for required_file in "${REQUIRED_LOCAL_FILES[@]}"; do
+  if [[ ! -f "$REPO_ROOT/$required_file" ]]; then
+    bootstrap_from_github
+  fi
+done
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -265,9 +289,14 @@ copy_file "$REPO_ROOT/templates/codex/skills/repo-brief/SKILL.md" "$HOME/.agents
 copy_file "$REPO_ROOT/templates/hermes/SOUL.md" "$HOME/.hermes/SOUL.md"
 copy_file "$REPO_ROOT/templates/hermes/config.fragment.yaml" "$AGENT_STACK_HOME/hermes.config.fragment.yaml"
 copy_file "$REPO_ROOT/templates/shared/output-contract.md" "$AGENT_STACK_HOME/output-contract.md"
+copy_file "$REPO_ROOT/templates/context/agent-rules.md" "$AGENT_STACK_HOME/context/agent-rules.md"
+copy_file "$REPO_ROOT/templates/context/memory-policy.md" "$AGENT_STACK_HOME/context/memory-policy.md"
+copy_file "$REPO_ROOT/templates/context/privacy-boundary.md" "$AGENT_STACK_HOME/context/privacy-boundary.md"
+copy_file "$REPO_ROOT/templates/context/context-bundle.example.md" "$AGENT_STACK_HOME/context/context-bundle.example.md"
 ensure_workflow_env
 
 link_command "$REPO_ROOT/bin/ai-build" "$LOCAL_BIN_DIR/ai-build"
+link_command "$REPO_ROOT/bin/ai-context" "$LOCAL_BIN_DIR/ai-context"
 link_command "$REPO_ROOT/bin/ai-review" "$LOCAL_BIN_DIR/ai-review"
 
 RESEARCH_CURRENT_TARGET=''
@@ -302,5 +331,6 @@ echo "Bin:  $LOCAL_BIN_DIR"
 echo
 echo 'Next steps:'
 echo '  1) Review ~/.config/agent-stack/workflow.env'
-echo '  2) Run ai-doctor'
-echo '  3) Install claude/opencode/codex if doctor warns they are missing'
+echo '  2) Run ai-context review'
+echo '  3) Run ai-doctor'
+echo '  4) Install claude/opencode/codex if doctor warns they are missing'

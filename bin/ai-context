@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/context_common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ai-context <command> [options]
+
+Commands:
+  init [--force]                         install editable context templates into ~/.config/agent-stack/context
+  bundle --target TARGET [--output PATH] generate an agent-specific context bundle to stdout or PATH
+  bundle --target TARGET --write         write bundle into the configured context bundle dir and print its path
+  review                                 check installed context files for size and privacy risks
+  archive                                move generated context bundles into archive/
+
+Targets:
+  builder | claude | opencode | reviewer | codex | researcher | hermes
+EOF
+}
+
+load_workflow_env
+
+cmd="${1-}"
+if [[ -z "$cmd" ]]; then
+  usage
+  exit 1
+fi
+shift
+
+case "$cmd" in
+  init)
+    force=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --force)
+          force=1
+          ;;
+        -h|--help)
+          usage
+          exit 0
+          ;;
+        *)
+          die "Unknown ai-context init argument: $1"
+          ;;
+      esac
+      shift
+    done
+    install_context_templates "$force"
+    ;;
+
+  bundle)
+    target=""
+    output_path=""
+    write_bundle=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --target)
+          shift
+          target="$(require_value_arg --target "${1-}")"
+          ;;
+        --output)
+          shift
+          output_path="$(require_value_arg --output "${1-}")"
+          ;;
+        --write)
+          write_bundle=1
+          ;;
+        -h|--help)
+          usage
+          exit 0
+          ;;
+        *)
+          die "Unknown ai-context bundle argument: $1"
+          ;;
+      esac
+      shift
+    done
+
+    [[ -n "$target" ]] || die 'ai-context bundle requires --target'
+
+    if [[ "$write_bundle" -eq 1 && -n "$output_path" ]]; then
+      die 'Use either --write or --output, not both'
+    fi
+
+    if [[ "$write_bundle" -eq 1 ]]; then
+      write_context_bundle "$target"
+    elif [[ -n "$output_path" ]]; then
+      mkdir -p "$(dirname "$output_path")"
+      generate_context_bundle "$target" > "$output_path"
+      printf '%s\n' "$output_path"
+    else
+      generate_context_bundle "$target"
+    fi
+    ;;
+
+  review)
+    review_context_files
+    ;;
+
+  archive)
+    archive_context_bundles
+    ;;
+
+  -h|--help)
+    usage
+    ;;
+
+  *)
+    die "Unknown ai-context command: $cmd"
+    ;;
+esac

@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/prompts.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/context_common.sh"
 
 usage() {
   cat <<'EOF'
@@ -164,7 +166,8 @@ esac
   printf 'explicit_untracked_files=%s\n' "${#VALIDATED_UNTRACKED_FILES[@]}"
 } > "$META_PATH"
 
-PROMPT="$(review_prompt "$DIFF_PATH")"
+CONTEXT_BUNDLE="$(generate_context_bundle codex)"
+PROMPT="$(review_prompt "$DIFF_PATH" "$CONTEXT_BUNDLE")"
 if [[ "$DUMP_PROMPT" -eq 1 ]]; then
   PROMPT_PATH="$(write_debug_file "$REPO_ROOT/.codex/tmp" 'review-prompt' "$PROMPT")"
   log "Saved review prompt to $PROMPT_PATH"

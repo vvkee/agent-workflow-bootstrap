@@ -2,11 +2,15 @@
 
 build_prompt() {
   local task="$1"
+  local context_bundle="${2:-}"
   cat <<EOF
 你是当前仓库的主写手。请直接在当前 repo 中完成任务。
 
 任务：
 $task
+
+Agent context bundle:
+$context_bundle
 
 硬约束：
 1. 先自己读取相关代码，再形成一个很短的内部计划，不要把长计划输出给用户。
@@ -36,11 +40,15 @@ EOF
 
 review_prompt() {
   local diff_path="$1"
+  local context_bundle="${2:-}"
   cat <<EOF
 You are the independent reviewer.
 
 Review only this diff file:
 $diff_path
+
+Agent context bundle:
+$context_bundle
 
 Rules:
 1. Do not modify any files.
@@ -68,11 +76,15 @@ EOF
 
 research_prompt() {
   local task="$1"
+  local context_bundle="${2:-}"
   cat <<EOF
 请做一次面向工程决策的外部研究。
 
 研究问题：
 $task
+
+Agent context bundle:
+$context_bundle
 
 输出要求：
 Facts:

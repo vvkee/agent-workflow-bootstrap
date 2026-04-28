@@ -8,6 +8,7 @@ trap 'rm -rf "$TMP_BASE"' EXIT
 LOG_DIR="$TMP_BASE/logs"
 mkdir -p "$LOG_DIR"
 export WORKFLOW_FAKE_LOG_DIR="$LOG_DIR"
+export AGENT_STACK_HOME="$TMP_BASE/agent-stack"
 export PATH="$ROOT/verify/fixtures/bin:$PATH"
 
 WORKFLOW_ENV_FILE="$TMP_BASE/workflow.env"
@@ -57,6 +58,8 @@ assert_contains "$LOG_DIR/claude-1.args" '--dangerously-skip-permissions'
 BUILD_PROMPT_PATH="$(find "$REPO_DIR/.ai/tmp" -maxdepth 1 -name 'build-prompt-*.txt' | head -n 1)"
 assert_file "$BUILD_PROMPT_PATH"
 assert_contains "$BUILD_PROMPT_PATH" '任务：'
+assert_contains "$BUILD_PROMPT_PATH" 'Agent context bundle:'
+assert_contains "$BUILD_PROMPT_PATH" 'Target: claude'
 
 printf 'E2E: ai-build with OpenCode driver override\n'
 "$ROOT/bin/ai-build" --driver opencode --model test-model --no-auto-approve --dump-prompt "implement fixture feature" > "$TMP_BASE/ai-build-opencode.out"
@@ -81,6 +84,7 @@ assert_contains "$REVIEW_DIFF_PATH" '## git diff'
 assert_contains "$REVIEW_DIFF_PATH" '## git diff --no-index (explicit untracked files)'
 assert_contains "$REVIEW_DIFF_PATH" 'untracked.txt'
 assert_contains "$REVIEW_PROMPT_PATH" 'Review only this diff file:'
+assert_contains "$REVIEW_PROMPT_PATH" 'Target: codex'
 
 printf 'E2E: ai-research with profile/toolset override\n'
 "$ROOT/bin/ai-research" --profile thin --toolsets web --dump-prompt "research fixture topic" > "$TMP_BASE/ai-research.out"
@@ -93,5 +97,6 @@ assert_contains "$LOG_DIR/hermes-1.args" 'ARG[6]=web'
 RESEARCH_PROMPT_PATH="$(find "$REPO_DIR/.ai/tmp" -maxdepth 1 -name 'research-prompt-*.txt' | head -n 1)"
 assert_file "$RESEARCH_PROMPT_PATH"
 assert_contains "$RESEARCH_PROMPT_PATH" '研究问题：'
+assert_contains "$RESEARCH_PROMPT_PATH" 'Target: hermes'
 
 printf 'E2E check passed\n'

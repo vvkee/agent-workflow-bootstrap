@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/prompts.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/context_common.sh"
 
 usage() {
   cat <<'EOF'
@@ -66,7 +68,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 TASK_TEXT="$(collect_input "${POSITIONAL[@]}")"
-PROMPT="$(build_prompt "$TASK_TEXT")"
+CONTEXT_BUNDLE="$(generate_context_bundle "$BUILD_DRIVER")"
+PROMPT="$(build_prompt "$TASK_TEXT" "$CONTEXT_BUNDLE")"
 
 if [[ "$DUMP_PROMPT" -eq 1 ]]; then
   PROMPT_PATH="$(write_debug_file "$REPO_ROOT/.ai/tmp" 'build-prompt' "$PROMPT")"

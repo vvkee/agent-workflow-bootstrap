@@ -6,7 +6,7 @@
 - 一份仓库
 - 一个安装入口
 - 一套全局模板
-- 四个统一命令入口
+- 五个统一命令入口
 - 尽量不污染每个 repo
 
 默认分工：
@@ -14,11 +14,13 @@
 - OpenCode = 备选主写手（`AGENT_BUILD_DRIVER=opencode` 切换）
 - Codex = 冷审
 - Hermes = research / memory / skills 外环
+- ai-context = agent-specific context bundle 与隐私边界层
 
 默认工作流：
 1. 小改动：`ai-build`
 2. 正常开发：`ai-build` -> `ai-review`
 3. 需要外部研究：`ai-research` -> `ai-build` -> `ai-review`
+4. 需要显式上下文：`ai-context bundle --target codex`
 
 原则：
 - 默认单主代理，不做多 agent 接力写代码
@@ -44,9 +46,11 @@ agent-workflow-bootstrap/
     workflow.env.example
   lib/
     common.sh
+    context_common.sh
     prompts.sh
   bin/
     ai-build
+    ai-context
     ai-review
     ai-research
     ai-doctor
@@ -56,6 +60,10 @@ agent-workflow-bootstrap/
     codex/AGENTS.md
     codex/skills/repo-review/SKILL.md
     codex/skills/repo-brief/SKILL.md
+    context/agent-rules.md
+    context/memory-policy.md
+    context/privacy-boundary.md
+    context/context-bundle.example.md
     shared/output-contract.md
     hermes/SOUL.md
     hermes/config.fragment.yaml
@@ -89,6 +97,7 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 - 若 `ai-research` 已被现有命令占用，自动回退安装为 `ai-research-workflow`
 - 在 `~/.config/agent-stack/workflow.env` 初始化共享 env 文件（若不存在）
 - 在 `~/.config/agent-stack/output-contract.md` 安装共享输出契约
+- 在 `~/.config/agent-stack/context/` 安装可编辑 context 模板
 - GitHub 直接安装会先把仓库落到稳定本地目录，再创建命令软链
 - 默认不覆写已有文件
 - 默认不改 Hermes 配置；如需自动补 `skills.external_dirs`，使用 `--patch-hermes-skills`
@@ -106,6 +115,8 @@ curl -fsSL https://raw.githubusercontent.com/vvkee/agent-workflow-bootstrap/main
 ```bash
 ./install.sh
 ai-doctor
+ai-context review
+ai-context bundle --target codex
 ai-build "修复一个小 bug"
 ai-review
 ai-research "调研某个库的最佳实践"
@@ -114,18 +125,25 @@ ai-research "调研某个库的最佳实践"
 如果你想临时切主写手或调试 prompt：
 
 ```bash
+ai-context bundle --target claude --write
 ai-build --driver opencode --dump-prompt "实现一个小功能"
 ai-review --mode working-tree --include-untracked src/new-file.ts --dump-prompt
 ai-research --profile thin --toolsets web --dump-prompt "调研发布策略"
 ```
 
-## 四个命令
+## 五个命令
 
 ### `ai-build`
 - 默认调用 Claude Code，或根据 `AGENT_BUILD_DRIVER` / `--driver` 调用 OpenCode
 - 让主写手自己读 repo、自主短计划、实现、验证
 - 支持：`--model`、`--no-auto-approve`、`--dump-prompt`
 - 默认要求输出：改动文件 / 核心原因 / 验证结果 / 剩余风险
+
+### `ai-context`
+- 初始化和检查 `~/.config/agent-stack/context/`
+- 生成 agent-specific context bundle：`builder|claude|opencode|reviewer|codex|researcher|hermes`
+- 支持：`init`、`bundle --target <target>`、`bundle --write`、`review`、`archive`
+- 只管理通用上下文协议，不保存真实长期记忆或私密 vault
 
 ### `ai-review`
 - 生成当前 repo 的 review diff
@@ -160,6 +178,24 @@ ai-research --profile thin --toolsets web --dump-prompt "调研发布策略"
 - `OPENCODE_BUILD_AGENT`
 - `HERMES_RESEARCH_PROFILE`
 - `HERMES_RESEARCH_TOOLSETS`
+- `AI_CONTEXT_ENABLED`
+- `AI_CONTEXT_DIR`
+- `AI_CONTEXT_MAX_LINES`
+- `AI_CONTEXT_MAX_BYTES`
+
+## Context / memory layer
+
+安装后会生成：
+- `~/.config/agent-stack/context/agent-rules.md`
+- `~/.config/agent-stack/context/memory-policy.md`
+- `~/.config/agent-stack/context/privacy-boundary.md`
+- `~/.config/agent-stack/context/context-bundle.example.md`
+
+原则：
+- agent-workflow-bootstrap 不保存用户真实长期记忆
+- context bundle 是给 agent 的最小操作契约，不是个人知识库
+- 不把 secrets、私密记录、完整 vault 或原始聊天记录放进 bundle
+- `ai-build` / `ai-review` / `ai-research` 会自动注入对应目标的最小 context bundle
 
 ## 临时目录约定
 

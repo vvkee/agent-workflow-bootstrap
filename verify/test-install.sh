@@ -42,6 +42,10 @@ check_common_install_files() {
   assert_file "$home_dir/.hermes/SOUL.md"
   assert_file "$home_dir/.config/agent-stack/workflow.env"
   assert_file "$home_dir/.config/agent-stack/output-contract.md"
+  assert_file "$home_dir/.config/agent-stack/context/agent-rules.md"
+  assert_file "$home_dir/.config/agent-stack/context/memory-policy.md"
+  assert_file "$home_dir/.config/agent-stack/context/privacy-boundary.md"
+  assert_file "$home_dir/.config/agent-stack/context/context-bundle.example.md"
 }
 
 printf 'Install test: local source install\n'
@@ -57,6 +61,7 @@ bash "$ROOT/install.sh"
 
 check_common_install_files "$LOCAL_HOME"
 assert_link_target "$LOCAL_BIN_DIR/ai-build" "$ROOT/bin/ai-build"
+assert_link_target "$LOCAL_BIN_DIR/ai-context" "$ROOT/bin/ai-context"
 assert_link_target "$LOCAL_BIN_DIR/ai-review" "$ROOT/bin/ai-review"
 assert_link_target "$LOCAL_BIN_DIR/ai-research" "$ROOT/bin/ai-research"
 assert_link_target "$LOCAL_BIN_DIR/ai-doctor" "$ROOT/bin/ai-doctor"
@@ -83,7 +88,7 @@ OLD_STAGE_DIR="$BOOT_HOME/.local/share/agent-workflow-bootstrap-old"
 UNRELATED_RESEARCH_TARGET="$BOOT_HOME/.local/bin/custom-ai-research"
 mkdir -p "$BOOT_HOME" "$BOOT_BIN_DIR" "$OLD_STAGE_DIR/bin"
 
-for cmd in ai-build ai-review ai-doctor; do
+for cmd in ai-build ai-context ai-review ai-doctor; do
   printf '# old bootstrap target\n' > "$OLD_STAGE_DIR/bin/$cmd"
   ln -sf "$OLD_STAGE_DIR/bin/$cmd" "$BOOT_BIN_DIR/$cmd"
 done
@@ -102,6 +107,7 @@ bash "$ROOT/bootstrap.sh"
 check_common_install_files "$BOOT_HOME"
 assert_file "$BOOT_STAGE_DIR/install.sh"
 assert_link_target_prefix "$BOOT_BIN_DIR/ai-build" "$BOOT_STAGE_DIR/bin/ai-build"
+assert_link_target_prefix "$BOOT_BIN_DIR/ai-context" "$BOOT_STAGE_DIR/bin/ai-context"
 assert_link_target_prefix "$BOOT_BIN_DIR/ai-review" "$BOOT_STAGE_DIR/bin/ai-review"
 assert_link_target "$BOOT_BIN_DIR/ai-research" "$UNRELATED_RESEARCH_TARGET"
 assert_link_target_prefix "$BOOT_BIN_DIR/ai-research-workflow" "$BOOT_STAGE_DIR/bin/ai-research"

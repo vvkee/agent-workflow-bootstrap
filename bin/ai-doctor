@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../lib/context_common.sh"
 
 load_workflow_env
 
@@ -75,7 +77,9 @@ printf 'codex cmd: %s\n' "${CODEX_BIN:-<missing>}"
 printf 'hermes cmd: %s\n' "$HERMES_BIN"
 printf 'review mode: %s\n' "${CODEX_REVIEW_MODE:-working-tree}"
 printf 'research profile: %s\n' "${HERMES_RESEARCH_PROFILE:-<default>}"
-printf 'research toolsets: %s\n\n' "${HERMES_RESEARCH_TOOLSETS:-web,browser}"
+printf 'research toolsets: %s\n' "${HERMES_RESEARCH_TOOLSETS:-web,browser}"
+printf 'context enabled: %s\n' "${AI_CONTEXT_ENABLED:-1}"
+printf 'context dir: %s\n\n' "$(context_dir)"
 
 printf 'Checks\n'
 printf '%s\n' '------'
@@ -107,6 +111,9 @@ fi
 
 check_path 'workflow env' "$WORKFLOW_ENV"
 check_path 'shared output contract' "$HOME/.config/agent-stack/output-contract.md"
+check_path 'context agent rules' "$(context_dir)/agent-rules.md"
+check_path 'context memory policy' "$(context_dir)/memory-policy.md"
+check_path 'context privacy boundary' "$(context_dir)/privacy-boundary.md"
 
 case "$BUILD_DRIVER" in
   claude)
@@ -127,6 +134,16 @@ check_path 'Codex global AGENTS' "$HOME/.codex/AGENTS.md"
 check_path 'Codex repo-review skill' "$HOME/.agents/skills/repo-review/SKILL.md"
 check_path 'Codex repo-brief skill' "$HOME/.agents/skills/repo-brief/SKILL.md"
 check_path 'Hermes SOUL' "$HOME/.hermes/SOUL.md"
+
+if context_enabled; then
+  if review_context_files; then
+    status_ok=$((status_ok + 1))
+  else
+    status_warn=$((status_warn + 1))
+  fi
+else
+  printf '[info] context loading disabled by AI_CONTEXT_ENABLED=0\n'
+fi
 
 if git rev-parse --show-toplevel >/dev/null 2>&1; then
   REPO_ROOT="$(git rev-parse --show-toplevel)"

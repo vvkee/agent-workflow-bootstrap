@@ -7,12 +7,15 @@ printf 'Smoke check: shell syntax\n'
 bash -n "$ROOT/install.sh"
 bash -n "$ROOT/bootstrap.sh"
 bash -n "$ROOT/lib/common.sh"
+bash -n "$ROOT/lib/context_common.sh"
 bash -n "$ROOT/lib/prompts.sh"
 bash -n "$ROOT/bin/ai-build"
+bash -n "$ROOT/bin/ai-context"
 bash -n "$ROOT/bin/ai-review"
 bash -n "$ROOT/bin/ai-research"
 bash -n "$ROOT/bin/ai-doctor"
 bash -n "$ROOT/verify/test-install.sh"
+bash -n "$ROOT/verify/context-smoke.sh"
 bash -n "$ROOT/verify/e2e.sh"
 bash -n "$ROOT/verify/fixtures/setup-test-repo.sh"
 bash -n "$ROOT/verify/fixtures/bin/claude"
@@ -31,6 +34,10 @@ for path in \
   "$ROOT/templates/codex/AGENTS.md" \
   "$ROOT/templates/codex/skills/repo-review/SKILL.md" \
   "$ROOT/templates/codex/skills/repo-brief/SKILL.md" \
+  "$ROOT/templates/context/agent-rules.md" \
+  "$ROOT/templates/context/memory-policy.md" \
+  "$ROOT/templates/context/privacy-boundary.md" \
+  "$ROOT/templates/context/context-bundle.example.md" \
   "$ROOT/templates/shared/output-contract.md" \
   "$ROOT/templates/hermes/SOUL.md"; do
   [[ -f "$path" ]] || { echo "Missing file: $path" >&2; exit 1; }
@@ -58,6 +65,9 @@ rm -f "$tmp_env"
 
 printf 'Smoke check: install flow\n'
 bash "$ROOT/verify/test-install.sh"
+
+printf 'Smoke check: context flow\n'
+bash "$ROOT/verify/context-smoke.sh"
 
 printf 'Smoke check: wrapper e2e\n'
 bash "$ROOT/verify/e2e.sh"
