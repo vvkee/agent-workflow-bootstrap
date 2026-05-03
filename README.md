@@ -33,6 +33,8 @@
 - 仓库名暂时仍为 agent-workflow-bootstrap，但 v1.1 scope 已扩成更通用的 agent stack bootstrap
 - v1.1 仍然是轻量 bootstrap，不是自动编排平台
 - 维护者范围、边界与 release criteria 见：`docs/roadmap.md`
+- 整体架构说明见：`docs/architecture.md`，可编辑架构图见：`docs/architecture.excalidraw`
+- 公司工作场景的安全工作流建议见：`docs/company-workflow.md`
 
 ## 项目结构
 
@@ -42,6 +44,9 @@ agent-workflow-bootstrap/
   bootstrap.sh
   docs/
     roadmap.md
+    architecture.md
+    architecture.excalidraw
+    company-workflow.md
   env/
     workflow.env.example
   lib/
